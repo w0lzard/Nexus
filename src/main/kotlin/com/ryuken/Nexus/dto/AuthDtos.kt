@@ -47,6 +47,12 @@ data class UserResponse(
     val email: String,
     val displayName: String?,
     val avatarUrl: String?,
+    val bio: String? = null,
+    val isPrivate: Boolean = false,
+    val isVerified: Boolean = false,
+    val followerCount: Long = 0,
+    val followingCount: Long = 0,
+    val isFollowing: Boolean = false,
     val createdAt: Instant?
 )
 
