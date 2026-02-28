@@ -22,7 +22,7 @@ repositories {
 
 // Added versions for libraries not managed by Spring Boot's BOM
 val jjwtVersion = "0.12.6"
-val awsSdkVersion = "2.25.65"
+val cloudinaryVersion = "1.39.0"
 val bucket4jVersion = "8.10.1"
 
 dependencies {
@@ -46,16 +46,14 @@ dependencies {
 
 	// Cache
 	implementation("org.springframework.boot:spring-boot-starter-data-redis")
+	implementation("org.springframework.boot:spring-boot-starter-cache")
 
 	// WebSockets
 	implementation("org.springframework.boot:spring-boot-starter-websocket")
 
-	// Storage (AWS SDK S3)
-	implementation(platform("software.amazon.awssdk:bom:$awsSdkVersion"))
-	implementation("software.amazon.awssdk:s3")
+	// Storage (Cloudinary)
+	implementation("com.cloudinary:cloudinary-http44:$cloudinaryVersion")
 
-	// Search
-	implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch")
 
 	// Email
 	implementation("org.springframework.boot:spring-boot-starter-mail")
