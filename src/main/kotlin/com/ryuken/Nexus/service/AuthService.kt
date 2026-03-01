@@ -4,6 +4,7 @@ import com.ryuken.Nexus.database.repository.UserRepository
 import com.ryuken.Nexus.dto.*
 import com.ryuken.Nexus.model.User
 import com.ryuken.Nexus.util.JwtUtil
+import com.ryuken.Nexus.util.toUserResponse
 import org.springframework.security.authentication.AuthenticationManager
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.crypto.password.PasswordEncoder
@@ -89,13 +90,5 @@ class AuthService(
         )
     }
 
-    private fun User.toUserResponse() = UserResponse(
-        id = this.id!!,
-        username = this.username,
-        email = this.email,
-        displayName = this.displayName,
-        avatarUrl = this.avatarUrl,
-        createdAt = this.createdAt
-    )
 }
 
