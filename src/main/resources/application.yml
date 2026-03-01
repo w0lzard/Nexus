@@ -26,6 +26,9 @@ spring:
       host: localhost
       port: 6379
 
+  cache:
+    type: redis
+
   elasticsearch:
     uris: http://localhost:9200
 
@@ -34,8 +37,30 @@ spring:
       enabled: false
 
 app:
+  base-url: http://localhost:8080
   jwt:
     secret: YourSuperSecretKeyThatIsAtLeast256BitsLongForHS256Algorithm2025!
     expiration-ms: 900000
     refresh-expiration-ms: 604800000
+
+  cloudinary:
+    cloud-name: your-cloud-name
+    api-key: your-api-key
+    api-secret: your-api-secret
+
+  mail:
+    from: noreply@nexus.app
+
+spring:
+  mail:
+    host: smtp.mailtrap.io
+    port: 587
+    username: your-mailtrap-username
+    password: your-mailtrap-password
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
