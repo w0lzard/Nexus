@@ -47,5 +47,7 @@ interface PostRepository : JpaRepository<Post, UUID> {
 
     @Query("SELECT p FROM Post p WHERE p.visibility = 'PUBLIC' ORDER BY (p.likeCount + p.commentCount * 2 + p.repostCount * 3) DESC, p.createdAt DESC")
     fun findTrending(pageable: Pageable): Page<Post>
+
+    fun countByAuthor(author: User): Long
 }
 

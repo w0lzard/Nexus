@@ -43,6 +43,7 @@ class SecurityConfig(
                     .requestMatchers("/actuator/**").hasRole("ADMIN")
                     .requestMatchers("/h2-console/**").permitAll()
                     .requestMatchers("/ws/**").permitAll()
+                    .requestMatchers("/api/upload/presign").authenticated()
                     .anyRequest().authenticated()
             }
             .headers { it.frameOptions { fo -> fo.sameOrigin() } }

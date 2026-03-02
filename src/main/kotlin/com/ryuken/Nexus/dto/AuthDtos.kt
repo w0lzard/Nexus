@@ -52,6 +52,7 @@ data class UserResponse(
     val isVerified: Boolean = false,
     val followerCount: Long = 0,
     val followingCount: Long = 0,
+    val postCount: Long = 0,
     val isFollowing: Boolean = false,
     val createdAt: Instant?
 )
