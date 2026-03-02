@@ -18,13 +18,22 @@ class PostController(
     private val postService: PostService
 ) {
 
-    @PostMapping
+    @PostMapping(consumes = ["application/json"])
     fun createPost(
         @AuthenticationPrincipal userDetails: UserDetails,
-        @Valid @RequestPart("post") request: CreatePostRequest,
-        @RequestPart("files", required = false) files: List<MultipartFile>?
+        @Valid @RequestBody request: CreatePostRequest
     ): ResponseEntity<PostResponse> {
-        val response = postService.createPost(userDetails.username, request, files ?: emptyList())
+        val response = postService.createPost(userDetails.username, request)
+        return ResponseEntity.status(HttpStatus.CREATED).body(response)
+    }
+
+    @PostMapping("/media", consumes = ["multipart/form-data"])
+    fun createPostWithMedia(
+        @AuthenticationPrincipal userDetails: UserDetails,
+        @Valid @RequestPart("post") request: CreatePostRequest,
+        @RequestPart("files") files: List<MultipartFile>
+    ): ResponseEntity<PostResponse> {
+        val response = postService.createPost(userDetails.username, request, files)
         return ResponseEntity.status(HttpStatus.CREATED).body(response)
     }
 
