@@ -64,7 +64,7 @@
 **📝 Posts & Media**
 - Text posts and image attachments
 - Reposts and quote posts
-- Visibility controls
+- Visibility controls (PUBLIC / PRIVATE)
 - Hashtag extraction & indexing
 
 </td>
@@ -72,7 +72,7 @@
 
 **🔔 Notifications**
 - In-app notification feed
-- Event-driven via Spring Events
+- Event-driven via Spring Events (`@Async`)
 - Real-time push over WebSocket (STOMP)
 - Unread count badge support
 
@@ -84,17 +84,36 @@
 **💬 Engagement**
 - Likes with toggle
 - Nested comments & replies
-- Like counts cached in Redis
 - `isLiked` flag per post per user
+- Comment & like counts on posts
 
 </td>
 <td>
 
 **🛡️ Safety & Scale**
-- Rate limiting with Bucket4j
-- Content reporting system
+- Rate limiting with Bucket4j (per IP & per user)
+- Content reporting system (admin actioning)
 - Block & mute users
-- Structured logging throughout
+- Password reset via email token
+
+</td>
+</tr>
+<tr>
+<td>
+
+**🔍 Discovery**
+- User search by username / display name
+- Hashtag pages
+- Explore / trending feed
+- Redis-cached trending scores (refreshed every 15 min)
+
+</td>
+<td>
+
+**📧 Email**
+- Verification email on registration
+- Password reset flow with expiring tokens
+- Configurable SMTP (Mailtrap / Gmail)
 
 </td>
 </tr>
@@ -111,7 +130,7 @@
 | 🐘 Database | PostgreSQL 16 | Primary data store |
 | 🔄 Migrations | Flyway | Schema versioning |
 | 🔑 Auth | Spring Security + JJWT 0.12 | JWT-based authentication |
-| ⚡ Cache | Redis 7 | Feed caching, session data |
+| ⚡ Cache | Redis 7 | Feed & trending caching |
 | 🔍 Search | Elasticsearch 8.11 | Full-text user/post search |
 | ☁️ Storage | Cloudinary | Image uploads |
 | 🔌 Real-time | WebSockets (STOMP) | Push notifications |
@@ -129,35 +148,102 @@
 ```
 src/main/kotlin/com/ryuken/Nexus/
 │
-├── 📄 NexusApplication.kt              # Application entry point
+├── 📄 NexusApplication.kt
 │
-├── 📁 controllers/                     # REST layer — HTTP in, HTTP out
-│   ├── AuthController.kt               # POST /api/auth/register, /login, /refresh
-│   └── UserController.kt              # GET /me, GET /{username}, PUT /me
+├── 📁 config/
+│   └── CacheConfig.kt                      # Redis cache configuration
+│
+├── 📁 controllers/                          # REST layer — HTTP in, HTTP out
+│   ├── AuthController.kt                   # /api/auth/**
+│   ├── UserController.kt                   # /api/users/**
+│   ├── PostController.kt                   # /api/posts/**
+│   ├── FollowController.kt                 # /api/users/{id}/follow/**
+│   ├── NotificationController.kt           # /api/notifications/**
+│   ├── PasswordController.kt               # /api/users/me/password, /api/auth/forgot-password
+│   ├── BlockMuteController.kt              # /api/users/{id}/block, /mute
+│   └── ReportController.kt                 # /api/reports/**
 │
 ├── 📁 database/
 │   └── repository/
-│       └── UserRepository.kt          # JPA repository for User entity
+│       ├── UserRepository.kt
+│       ├── PostRepository.kt
+│       ├── FollowRepository.kt
+│       ├── LikeRepository.kt
+│       ├── CommentRepository.kt
+│       ├── NotificationRepository.kt
+│       ├── HashtagRepository.kt
+│       ├── BlockRepository.kt
+│       ├── MuteRepository.kt
+│       ├── PasswordResetTokenRepository.kt
+│       └── ReportRepository.kt
 │
-├── 📁 dto/                             # Data Transfer Objects
-│   └── AuthDtos.kt                    # RegisterRequest, LoginRequest, AuthResponse …
+├── 📁 dto/                                  # Data Transfer Objects
+│   ├── AuthDtos.kt                         # RegisterRequest, LoginRequest, AuthResponse
+│   ├── UserDtos.kt                         # UserResponse, UpdateProfileRequest
+│   ├── PostDtos.kt                         # CreatePostRequest, PostResponse
+│   ├── CommentDtos.kt                      # CommentRequest, CommentResponse
+│   ├── NotificationDtos.kt                 # NotificationResponse
+│   └── MiscDtos.kt                         # ReportRequest, shared DTOs
 │
-├── 📁 exception/                       # Error handling
-│   └── GlobalExceptionHandler.kt      # Unified error responses
+├── 📁 event/
+│   └── NotificationEvent.kt                # Spring application event for async notifications
 │
-├── 📁 model/                           # JPA entities
-│   └── User.kt                        # User entity + Role enum
+├── 📁 exception/
+│   └── GlobalExceptionHandler.kt           # Unified error responses (@RestControllerAdvice)
 │
-├── 📁 security/                        # Spring Security layer
-│   ├── CustomUserDetailsService.kt    # Loads user from DB for Spring Security
-│   ├── JwtAuthenticationFilter.kt     # Validates Bearer token on every request
-│   └── SecurityConfig.kt             # Filter chain, BCrypt, CORS, session policy
+├── 📁 model/                                # JPA entities
+│   ├── User.kt
+│   ├── Post.kt
+│   ├── Follow.kt
+│   ├── Like.kt
+│   ├── Comment.kt
+│   ├── Notification.kt
+│   ├── Hashtag.kt
+│   ├── Block.kt
+│   ├── Mute.kt
+│   ├── PasswordResetToken.kt
+│   └── Report.kt
 │
-├── 📁 service/                         # Business logic
-│   └── AuthService.kt                 # Register, login, refresh token
+├── 📁 ratelimit/
+│   └── RateLimitingFilter.kt               # Bucket4j per-IP and per-user rate limiting
 │
-└── 📁 util/
-    └── JwtUtil.kt                     # JWT generate / validate / parse
+├── 📁 scheduler/
+│   └── TrendingRefreshScheduler.kt         # @Scheduled trending cache refresh (every 15 min)
+│
+├── 📁 security/
+│   ├── CustomUserDetailsService.kt         # Loads user from DB for Spring Security
+│   ├── JwtAuthenticationFilter.kt          # Validates Bearer token on every request
+│   └── SecurityConfig.kt                  # Filter chain, BCrypt, session policy
+│
+├── 📁 service/
+│   ├── AuthService.kt                      # Register, login, refresh token
+│   ├── UserService.kt                      # Profile CRUD, avatar upload, search
+│   ├── PostService.kt                      # Create, delete, feed, trending, hashtags
+│   ├── FollowService.kt                    # Follow, unfollow, accept/reject requests
+│   ├── LikeService.kt                      # Toggle like, publish NotificationEvent
+│   ├── CommentService.kt                   # Add/delete comments, publish events
+│   ├── NotificationService.kt              # Save, list, mark read, WS push
+│   ├── EmailService.kt                     # Send verification & reset emails
+│   ├── PasswordService.kt                  # Change password, forgot/reset flow
+│   ├── CloudinaryService.kt                # Image upload/delete via Cloudinary SDK
+│   ├── FileStorageService.kt               # FileStorageService interface
+│   ├── BlockService.kt                     # Block / unblock users
+│   ├── MuteService.kt                      # Mute / unmute users
+│   └── ReportService.kt                    # Submit and action content reports
+│
+├── 📁 util/
+│   ├── JwtUtil.kt                          # JWT generate / validate / parse
+│   └── UserExtensions.kt                   # User entity → UserResponse mapper
+│
+└── 📁 websocket/
+    ├── WebSocketConfig.kt                  # STOMP endpoint config (/ws)
+    └── NotificationWebSocketService.kt     # Push to /user/queue/notifications
+
+src/main/resources/
+├── application.properties                  # Main configuration
+└── db/migration/
+    ├── V1__create_users_table.sql
+    └── V2__create_social_tables.sql
 ```
 
 ---
@@ -190,19 +276,36 @@ docker compose up -d
 | Redis | `6379` | — |
 | Elasticsearch | `9200` | — |
 
-### 3️⃣ Run the Application
+### 3️⃣ Configure
+
+Edit `src/main/resources/application.properties`. At minimum, set your real credentials for:
+
+```properties
+# Cloudinary
+app.cloudinary.cloud-name=your-cloud-name
+app.cloudinary.api-key=your-api-key
+app.cloudinary.api-secret=your-api-secret
+
+# SMTP (Mailtrap or Gmail)
+spring.mail.username=your-smtp-username
+spring.mail.password=your-smtp-password
+```
+
+> ⚠️ **Never commit real secrets.** Use environment variables or a secrets manager in production.
+
+### 4️⃣ Run the Application
 
 ```bash
-# Linux / macOS
-./gradlew bootRun
-
 # Windows
 .\gradlew.bat bootRun
+
+# Linux / macOS
+./gradlew bootRun
 ```
 
 The server starts on **http://localhost:8080** 🎉
 
-### 4️⃣ Verify
+### 5️⃣ Verify
 
 ```bash
 curl http://localhost:8080/actuator/health
@@ -223,6 +326,8 @@ curl http://localhost:8080/actuator/health
 | `POST` | `/api/auth/register` | Create a new account | ❌ |
 | `POST` | `/api/auth/login` | Login, receive tokens | ❌ |
 | `POST` | `/api/auth/refresh` | Swap refresh → new access token | ❌ |
+| `POST` | `/api/auth/forgot-password` | Send password reset email | ❌ |
+| `POST` | `/api/auth/reset-password` | Reset password with token | ❌ |
 
 <details>
 <summary><b>POST</b> <code>/api/auth/register</code></summary>
@@ -264,6 +369,79 @@ curl -X POST http://localhost:8080/api/auth/refresh \
 ```
 </details>
 
+---
+
+### 👤 Users
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/users/me` | Get current user profile | ✅ |
+| `PUT` | `/api/users/me` | Update profile | ✅ |
+| `POST` | `/api/users/me/avatar` | Upload avatar image | ✅ |
+| `PUT` | `/api/users/me/password` | Change password | ✅ |
+| `GET` | `/api/users/{username}` | Get public profile by username | ✅ |
+| `GET` | `/api/users/search?q=` | Search users by name | ❌ |
+
+---
+
+### 📝 Posts
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `POST` | `/api/posts` | Create a post | ✅ |
+| `GET` | `/api/posts/{id}` | Get post by ID | ✅ |
+| `DELETE` | `/api/posts/{id}` | Delete own post | ✅ |
+| `GET` | `/api/posts/feed` | Home feed (followed users) | ✅ |
+| `GET` | `/api/posts/public` | Public posts paginated | ❌ |
+| `GET` | `/api/posts/explore` | Trending / explore feed | ❌ |
+| `GET` | `/api/posts/user/{username}` | Posts by a specific user | ✅ |
+| `GET` | `/api/posts/hashtag/{tag}` | Posts by hashtag | ❌ |
+| `POST` | `/api/posts/{id}/like` | Toggle like on a post | ✅ |
+| `POST` | `/api/posts/{id}/comments` | Add a comment | ✅ |
+| `GET` | `/api/posts/{id}/comments` | List comments on a post | ✅ |
+| `DELETE` | `/api/posts/{id}/comments/{commentId}` | Delete own comment | ✅ |
+
+---
+
+### 🤝 Follows
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `POST` | `/api/users/{id}/follow` | Follow a user | ✅ |
+| `DELETE` | `/api/users/{id}/follow` | Unfollow a user | ✅ |
+| `GET` | `/api/users/{id}/follow/followers` | List followers | ✅ |
+| `GET` | `/api/users/{id}/follow/following` | List following | ✅ |
+
+---
+
+### 🔔 Notifications
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/notifications` | Get notifications (paginated) | ✅ |
+| `GET` | `/api/notifications/unread-count` | Get unread count | ✅ |
+| `POST` | `/api/notifications/mark-all-read` | Mark all as read | ✅ |
+
+**WebSocket (STOMP)**
+- Connect to: `ws://localhost:8080/ws`
+- Subscribe to: `/user/queue/notifications`
+- Receives real-time notification payloads on like, comment, and follow events
+
+---
+
+### 🛡️ Block, Mute & Reports
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `POST` | `/api/users/{id}/block` | Block a user | ✅ |
+| `DELETE` | `/api/users/{id}/block` | Unblock a user | ✅ |
+| `POST` | `/api/users/{id}/mute` | Mute a user | ✅ |
+| `DELETE` | `/api/users/{id}/mute` | Unmute a user | ✅ |
+| `POST` | `/api/reports` | Submit a content report | ✅ |
+| `GET` | `/api/reports` | List reports (ADMIN only) | ✅ |
+
+---
+
 ### 📦 Response Shapes
 
 **Success — Auth Response**
@@ -277,7 +455,7 @@ curl -X POST http://localhost:8080/api/auth/refresh \
     "email": "john@example.com",
     "displayName": "John Doe",
     "avatarUrl": null,
-    "createdAt": "2026-02-25T00:00:00Z"
+    "createdAt": "2026-03-01T00:00:00Z"
   }
 }
 ```
@@ -288,7 +466,7 @@ curl -X POST http://localhost:8080/api/auth/refresh \
   "status": 400,
   "error": "Bad Request",
   "message": "Username 'johndoe' is already taken",
-  "timestamp": "2026-02-25T00:00:00Z"
+  "timestamp": "2026-03-01T00:00:00Z"
 }
 ```
 
@@ -304,15 +482,24 @@ http://localhost:8080/swagger-ui/index.html
 
 ## ⚙️ Configuration
 
-Key properties in `src/main/resources/application.yml`:
+All configuration lives in `src/main/resources/application.properties`:
 
 | Property | Default | Description |
 |----------|---------|-------------|
 | `server.port` | `8080` | HTTP port |
 | `spring.datasource.url` | `jdbc:postgresql://localhost:5432/socialapp` | Database URL |
-| `app.jwt.secret` | *(set in yml)* | JWT signing secret — **min 256 bits** |
-| `app.jwt.expiration-ms` | `900000` | Access token TTL (15 minutes) |
+| `spring.datasource.username` | `postgres` | DB username |
+| `spring.datasource.password` | `password` | DB password |
+| `app.jwt.secret` | *(set in properties)* | JWT signing secret — **min 256 bits** |
+| `app.jwt.expiration-ms` | `900000` | Access token TTL (15 min) |
 | `app.jwt.refresh-expiration-ms` | `604800000` | Refresh token TTL (7 days) |
+| `app.cloudinary.cloud-name` | *(set yours)* | Cloudinary cloud name |
+| `app.cloudinary.api-key` | *(set yours)* | Cloudinary API key |
+| `app.cloudinary.api-secret` | *(set yours)* | Cloudinary API secret |
+| `spring.mail.host` | `smtp.mailtrap.io` | SMTP host |
+| `spring.mail.username` | *(set yours)* | SMTP username |
+| `spring.mail.password` | *(set yours)* | SMTP password |
+| `management.health.mail.enabled` | `false` | Mail health check (disabled until SMTP is configured) |
 
 > ⚠️ **Never commit real secrets.** Use environment variables or a secrets manager in production.
 
@@ -321,10 +508,16 @@ Key properties in `src/main/resources/application.yml`:
 ## 🧪 Testing
 
 ```bash
+# Windows
+.\gradlew.bat test
+
+# Linux / macOS
 ./gradlew test
 ```
 
 Test reports are generated at `build/reports/tests/test/index.html`.
+
+The test profile uses an **H2 in-memory database** with Flyway disabled, configured in `src/test/resources/application-test.properties`.
 
 ---
 
@@ -332,10 +525,18 @@ Test reports are generated at `build/reports/tests/test/index.html`.
 
 ```bash
 # Build the executable JAR
-./gradlew bootJar
+.\gradlew.bat bootJar
 
 # Run the JAR directly
 java -jar build/libs/Nexus-0.0.1-SNAPSHOT.jar
+```
+
+To run with overridden properties in production:
+
+```bash
+java -jar Nexus-0.0.1-SNAPSHOT.jar \
+  --spring.datasource.url=jdbc:postgresql://prod-host:5432/socialapp \
+  --app.jwt.secret=YourProductionSecret
 ```
 
 ---
@@ -345,22 +546,29 @@ java -jar build/libs/Nexus-0.0.1-SNAPSHOT.jar
 - [x] Authentication (register / login / refresh)
 - [x] JWT security filter chain
 - [x] Global exception handler
-- [ ] User profiles & avatar upload
-- [ ] Posts (text + media)
-- [ ] Follow system (public / private accounts)
-- [ ] Home feed with Redis caching
-- [ ] Likes & comments
-- [ ] Reposts & quote posts
-- [ ] In-app notifications (DB)
-- [ ] Real-time push via WebSocket
-- [ ] User search & hashtags
-- [ ] Explore / trending feed
-- [ ] Password reset via email
-- [ ] Email verification
-- [ ] Block & mute
-- [ ] Rate limiting
-- [ ] Content reporting
+- [x] User profiles (get, update, avatar upload)
+- [x] Cloudinary file storage
+- [x] Posts (text + media, visibility, reposts, quote posts)
+- [x] Follow system (public / private accounts with PENDING state)
+- [x] Home feed with Redis caching
+- [x] Likes (toggle, `isLiked` on PostResponse)
+- [x] Nested comments & replies
+- [x] Hashtag extraction & hashtag pages
+- [x] Explore / trending feed (Redis-cached, refreshed every 15 min)
+- [x] In-app notifications (DB-backed)
+- [x] Event-driven notification triggers (`@Async` Spring Events)
+- [x] Real-time push via WebSocket (STOMP)
+- [x] User search
+- [x] Password change endpoint
+- [x] Password reset via email token
+- [x] Email service (verification + reset emails)
+- [x] Block & mute users
+- [x] Rate limiting (Bucket4j — per IP on auth, per user on posts)
+- [x] Content reporting (submit + admin review)
+- [ ] Email verification flow (token → mark account verified)
 - [ ] Integration test suite
+- [ ] Docker production image
+- [ ] CI/CD pipeline
 
 ---
 
