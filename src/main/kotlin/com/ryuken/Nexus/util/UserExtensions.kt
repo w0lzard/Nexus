@@ -6,6 +6,7 @@ import com.ryuken.Nexus.model.User
 fun User.toUserResponse(
     followerCount: Long = 0,
     followingCount: Long = 0,
+    postCount: Long = 0,
     isFollowing: Boolean = false
 ) = UserResponse(
     id = this.id!!,
@@ -18,6 +19,7 @@ fun User.toUserResponse(
     isVerified = this.isVerified,
     followerCount = followerCount,
     followingCount = followingCount,
+    postCount = postCount,
     isFollowing = isFollowing,
     createdAt = this.createdAt
 )
