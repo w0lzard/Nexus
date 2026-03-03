@@ -19,7 +19,7 @@ interface PostRepository : JpaRepository<Post, UUID> {
 
     fun findByVisibilityOrderByCreatedAtDesc(visibility: Visibility, pageable: Pageable): Page<Post>
 
-    @Query("SELECT p FROM Post p WHERE p.author.id IN :authorIds AND p.visibility = 'PUBLIC' ORDER BY p.createdAt DESC")
+    @Query("SELECT p FROM Post p WHERE p.author.id IN :authorIds AND p.visibility <> com.ryuken.Nexus.model.Visibility.PRIVATE ORDER BY p.createdAt DESC")
     fun findFeedForUser(@Param("authorIds") authorIds: List<UUID>, pageable: Pageable): Page<Post>
 
     @Query("SELECT p FROM Post p JOIN PostHashtag ph ON ph.post = p JOIN Hashtag h ON ph.hashtag = h WHERE LOWER(h.tag) = LOWER(:tag) ORDER BY p.createdAt DESC")

@@ -78,7 +78,8 @@ class PostController(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int
     ): ResponseEntity<Page<PostResponse>> {
-        return ResponseEntity.ok(postService.getFeed(userDetails.username, page, size))
+        val safeSize = minOf(size, 50)
+        return ResponseEntity.ok(postService.getFeed(userDetails.username, page, safeSize))
     }
 
     @GetMapping("/hashtag/{tag}")
