@@ -12,7 +12,11 @@ enum class FollowStatus {
 @Entity
 @Table(
     name = "follows",
-    uniqueConstraints = [UniqueConstraint(columnNames = ["follower_id", "following_id"])]
+    uniqueConstraints = [UniqueConstraint(columnNames = ["follower_id", "following_id"])],
+    indexes = [
+        Index(name = "idx_follows_follower", columnList = "follower_id"),
+        Index(name = "idx_follows_following", columnList = "following_id")
+    ]
 )
 class Follow(
 

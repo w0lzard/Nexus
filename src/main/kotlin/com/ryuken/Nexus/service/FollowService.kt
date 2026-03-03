@@ -2,6 +2,7 @@ package com.ryuken.Nexus.service
 
 import com.ryuken.Nexus.database.repository.FollowRepository
 import com.ryuken.Nexus.database.repository.UserRepository
+import com.ryuken.Nexus.dto.FollowResponse
 import com.ryuken.Nexus.dto.UserResponse
 import com.ryuken.Nexus.event.NotificationEvent
 import com.ryuken.Nexus.model.Follow
@@ -11,6 +12,7 @@ import com.ryuken.Nexus.util.toUserResponse
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.*
@@ -19,11 +21,17 @@ import java.util.*
 class FollowService(
     private val followRepository: FollowRepository,
     private val userRepository: UserRepository,
-    private val eventPublisher: ApplicationEventPublisher
+    private val eventPublisher: ApplicationEventPublisher,
+    private val redisTemplate: RedisTemplate<String, Any>
 ) {
 
+    private fun evictFeedCache(userId: UUID) {
+        val keys = redisTemplate.keys("feed:$userId:*")
+        if (!keys.isNullOrEmpty()) redisTemplate.delete(keys)
+    }
+
     @Transactional
-    fun followUser(followerUsername: String, followingId: UUID): String {
+    fun followUser(followerUsername: String, followingId: UUID): FollowResponse {
         val follower = userRepository.findByUsername(followerUsername)
             ?: throw IllegalArgumentException("User not found")
         val following = userRepository.findById(followingId)
@@ -32,7 +40,10 @@ class FollowService(
         if (follower.id == following.id) throw IllegalArgumentException("Cannot follow yourself")
 
         val existing = followRepository.findByFollowerAndFollowing(follower, following)
-        if (existing != null) throw IllegalArgumentException("Already following or request pending")
+        if (existing != null) {
+            val msg = if (existing.status == FollowStatus.PENDING) "Follow request sent" else "Following"
+            return FollowResponse(status = existing.status.name, message = msg)
+        }
 
         val status = if (following.isPrivate) FollowStatus.PENDING else FollowStatus.ACCEPTED
         followRepository.save(Follow(follower = follower, following = following, status = status))
@@ -40,7 +51,11 @@ class FollowService(
         val notifType = if (status == FollowStatus.PENDING) NotificationType.FOLLOW_REQUEST else NotificationType.FOLLOW
         eventPublisher.publishEvent(NotificationEvent(recipientId = following.id!!, actorId = follower.id!!, type = notifType))
 
-        return if (status == FollowStatus.PENDING) "Follow request sent" else "Now following"
+        // Invalidate follower's feed cache so the new person's posts appear immediately
+        if (status == FollowStatus.ACCEPTED) evictFeedCache(follower.id!!)
+
+        val message = if (status == FollowStatus.PENDING) "Follow request sent" else "Following"
+        return FollowResponse(status = status.name, message = message)
     }
 
     @Transactional
@@ -52,6 +67,9 @@ class FollowService(
         val follow = followRepository.findByFollowerAndFollowing(follower, following)
             ?: throw IllegalArgumentException("Not following this user")
         followRepository.delete(follow)
+
+        // Invalidate follower's feed cache so the unfollowed user's posts disappear immediately
+        evictFeedCache(follower.id!!)
     }
 
     @Transactional
@@ -66,6 +84,9 @@ class FollowService(
         follow.status = FollowStatus.ACCEPTED
         followRepository.save(follow)
         eventPublisher.publishEvent(NotificationEvent(recipientId = follower.id!!, actorId = following.id!!, type = NotificationType.FOLLOW))
+
+        // Invalidate follower's feed so the newly accepted account's posts appear
+        evictFeedCache(follower.id!!)
     }
 
     @Transactional
@@ -101,5 +122,14 @@ class FollowService(
 
     fun isFollowing(follower: com.ryuken.Nexus.model.User, following: com.ryuken.Nexus.model.User): Boolean =
         followRepository.existsByFollowerAndFollowingAndStatus(follower, following, FollowStatus.ACCEPTED)
+
+    fun getPendingRequests(username: String): List<UserResponse> {
+        val user = userRepository.findByUsername(username)
+            ?: throw IllegalArgumentException("User not found")
+        return followRepository.findByFollowingAndStatus(user, FollowStatus.PENDING, PageRequest.of(0, 100))
+            .content
+            .map { it.follower.toUserResponse() }
+    }
 }
+
 

@@ -5,11 +5,8 @@ import jakarta.validation.constraints.Size
 import java.util.*
 
 data class FollowResponse(
-    val followerId: UUID,
-    val followerUsername: String,
-    val followerAvatarUrl: String?,
-    val followingId: UUID,
-    val followingUsername: String
+    val status: String,
+    val message: String
 )
 
 data class ChangePasswordRequest(

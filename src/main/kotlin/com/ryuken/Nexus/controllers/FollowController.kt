@@ -1,5 +1,6 @@
 package com.ryuken.Nexus.controllers
 
+import com.ryuken.Nexus.dto.FollowResponse
 import com.ryuken.Nexus.dto.MessageResponse
 import com.ryuken.Nexus.dto.UserResponse
 import com.ryuken.Nexus.service.FollowService
@@ -20,9 +21,9 @@ class FollowController(
     fun follow(
         @AuthenticationPrincipal userDetails: UserDetails,
         @PathVariable id: UUID
-    ): ResponseEntity<MessageResponse> {
-        val message = followService.followUser(userDetails.username, id)
-        return ResponseEntity.ok(MessageResponse(message))
+    ): ResponseEntity<FollowResponse> {
+        val response = followService.followUser(userDetails.username, id)
+        return ResponseEntity.ok(response)
     }
 
     @DeleteMapping
@@ -49,9 +50,17 @@ class FollowController(
         @AuthenticationPrincipal userDetails: UserDetails,
         @PathVariable id: UUID,
         @PathVariable followerId: UUID
-    ): ResponseEntity<MessageResponse> {
+    ): ResponseEntity<Void> {
         followService.rejectFollowRequest(userDetails.username, followerId)
-        return ResponseEntity.ok(MessageResponse("Follow request rejected"))
+        return ResponseEntity.noContent().build()
+    }
+
+    @GetMapping("/requests")
+    fun getPendingRequests(
+        @AuthenticationPrincipal userDetails: UserDetails,
+        @PathVariable id: UUID
+    ): ResponseEntity<List<UserResponse>> {
+        return ResponseEntity.ok(followService.getPendingRequests(userDetails.username))
     }
 
     @GetMapping("/followers")
