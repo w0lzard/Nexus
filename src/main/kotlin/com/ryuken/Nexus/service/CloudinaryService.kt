@@ -26,6 +26,16 @@ class CloudinaryService(
     )
 
     override fun uploadFile(file: MultipartFile, folder: String): String {
+        val allowedTypes = setOf("image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "video/mp4")
+        val contentType = file.contentType ?: throw IllegalArgumentException("File content type is missing")
+        if (contentType !in allowedTypes) {
+            throw IllegalArgumentException("File type '$contentType' is not allowed. Allowed types: $allowedTypes")
+        }
+        val maxBytes = 10L * 1024L * 1024L // 10 MB
+        if (file.size > maxBytes) {
+            throw IllegalArgumentException("File size ${file.size} exceeds the maximum allowed size of 10MB")
+        }
+
         val options = ObjectUtils.asMap(
             "folder", folder,
             "resource_type", "auto"

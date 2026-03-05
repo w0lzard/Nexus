@@ -77,6 +77,17 @@ class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response)
     }
 
+    @ExceptionHandler(SecurityException::class)
+    fun handleSecurityException(ex: SecurityException): ResponseEntity<ErrorResponse> {
+        val response = ErrorResponse(
+            status = HttpStatus.FORBIDDEN.value(),
+            error = "Forbidden",
+            message = ex.message ?: "Access denied"
+        )
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response)
+    }
+
     @ExceptionHandler(Exception::class)
     fun handleGenericException(ex: Exception): ResponseEntity<ErrorResponse> {
         logger.error("Unexpected error occurred", ex)
