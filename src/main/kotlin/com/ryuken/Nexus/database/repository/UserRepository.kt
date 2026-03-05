@@ -20,7 +20,7 @@ interface UserRepository : JpaRepository<User, UUID> {
 
     fun existsByEmail(email: String): Boolean
 
-    @Query("SELECT u FROM User u WHERE LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.displayName) LIKE LOWER(CONCAT('%', :query, '%'))")
-    fun searchUsers(@Param("query") query: String): List<User>
+    @Query("SELECT u FROM User u WHERE LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.displayName) LIKE LOWER(CONCAT('%', :query, '%')) ORDER BY u.username")
+    fun searchUsers(@Param("query") query: String, pageable: org.springframework.data.domain.Pageable): org.springframework.data.domain.Page<User>
 }
 
