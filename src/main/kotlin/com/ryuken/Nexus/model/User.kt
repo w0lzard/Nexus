@@ -11,7 +11,13 @@ enum class Role {
 }
 
 @Entity
-@Table(name = "users")
+@Table(
+    name = "users",
+    indexes = [
+        Index(name = "idx_users_username", columnList = "username"),
+        Index(name = "idx_users_email", columnList = "email")
+    ]
+)
 class User(
 
     @Id
