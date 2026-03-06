@@ -1,7 +1,6 @@
 package com.ryuken.Nexus.dto
 
 import com.ryuken.Nexus.model.Visibility
-import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import java.time.Instant
 import java.util.*
@@ -26,6 +25,7 @@ data class PostResponse(
     val repostCount: Long,
     val isLiked: Boolean = false,
     val parentPost: PostResponse? = null,
-    val createdAt: Instant?
+    val createdAt: Instant?,
+    val updatedAt: Instant? = null
 )
 

@@ -65,10 +65,8 @@ class FollowService(
         val following = userRepository.findById(followingId)
             .orElseThrow { IllegalArgumentException("User not found") }
         val follow = followRepository.findByFollowerAndFollowing(follower, following)
-            ?: throw IllegalArgumentException("Not following this user")
+            ?: return  // Already not following — idempotent
         followRepository.delete(follow)
-
-        // Invalidate follower's feed cache so the unfollowed user's posts disappear immediately
         evictFeedCache(follower.id!!)
     }
 

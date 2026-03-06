@@ -72,6 +72,7 @@ class UserService(
     }
 
     fun searchUsers(query: String): List<UserResponse> {
-        return userRepository.searchUsers(query).map { it.toUserResponse() }
+        val pageable = org.springframework.data.domain.PageRequest.of(0, 50)
+        return userRepository.searchUsers(query, pageable).content.map { it.toUserResponse() }
     }
 }

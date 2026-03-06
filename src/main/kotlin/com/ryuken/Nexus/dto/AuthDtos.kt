@@ -2,6 +2,7 @@ package com.ryuken.Nexus.dto
 
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 import java.time.Instant
 import java.util.*
@@ -9,6 +10,7 @@ import java.util.*
 data class RegisterRequest(
     @field:NotBlank(message = "Username is required")
     @field:Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
+    @field:Pattern(regexp = "^[a-zA-Z0-9_]+$", message = "Username can only contain letters, numbers and underscores")
     val username: String,
 
     @field:NotBlank(message = "Email is required")
