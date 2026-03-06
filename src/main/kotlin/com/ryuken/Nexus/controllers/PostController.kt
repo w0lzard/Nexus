@@ -66,10 +66,11 @@ class PostController(
 
     @GetMapping("/public")
     fun getPublicPosts(
+        @AuthenticationPrincipal userDetails: UserDetails?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int
     ): ResponseEntity<Page<PostResponse>> {
-        return ResponseEntity.ok(postService.getPublicPosts(page, size))
+        return ResponseEntity.ok(postService.getPublicPosts(page, size, userDetails?.username))
     }
 
     @GetMapping("/feed")
@@ -103,9 +104,10 @@ class PostController(
     fun toggleLike(
         @AuthenticationPrincipal userDetails: UserDetails,
         @PathVariable id: java.util.UUID
-    ): ResponseEntity<Map<String, Boolean>> {
+    ): ResponseEntity<Map<String, Any>> {
         val liked = postService.toggleLike(userDetails.username, id)
-        return ResponseEntity.ok(mapOf("liked" to liked))
+        val post = postService.getPostById(id, userDetails.username)
+        return ResponseEntity.ok(mapOf("liked" to liked, "likeCount" to post.likeCount))
     }
 
     @PostMapping("/{id}/comments")

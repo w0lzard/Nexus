@@ -121,16 +121,13 @@ class PostService(
 
         val result: Page<PostResponse> = if (followingIds.isEmpty()) {
             // New user fallback: show public posts so the feed is never blank
-            postRepository.findByVisibilityOrderByCreatedAtDesc(Visibility.PUBLIC, pageable)
-                .map { post ->
-                    val isLiked = likeRepository.existsByUserAndPost(user, post)
-                    post.toPostResponse(isLiked = isLiked)
-                }
+            val posts = postRepository.findByVisibilityOrderByCreatedAtDesc(Visibility.PUBLIC, pageable)
+            val likedIds = bulkLikedPostIds(user.id!!, posts.content)
+            posts.map { post -> post.toPostResponse(isLiked = post.id in likedIds) }
         } else {
-            postRepository.findFeedForUser(followingIds, pageable).map { post ->
-                val isLiked = likeRepository.existsByUserAndPost(user, post)
-                post.toPostResponse(isLiked = isLiked)
-            }
+            val posts = postRepository.findFeedForUser(followingIds, pageable)
+            val likedIds = bulkLikedPostIds(user.id!!, posts.content)
+            posts.map { post -> post.toPostResponse(isLiked = post.id in likedIds) }
         }
 
         // Store in Redis with 2-minute TTL
@@ -169,16 +166,17 @@ class PostService(
             ?: throw IllegalArgumentException("User not found")
         val viewer = viewerUsername?.let { userRepository.findByUsername(it) }
         val pageable = PageRequest.of(page, size, Sort.by("createdAt").descending())
-        return postRepository.findByAuthorOrderByCreatedAtDesc(author, pageable).map { post ->
-            val isLiked = viewer?.let { likeRepository.existsByUserAndPost(it, post) } ?: false
-            post.toPostResponse(isLiked = isLiked)
-        }
+        val posts = postRepository.findByAuthorOrderByCreatedAtDesc(author, pageable)
+        val likedIds = viewer?.let { bulkLikedPostIds(it.id!!, posts.content) } ?: emptySet()
+        return posts.map { post -> post.toPostResponse(isLiked = post.id in likedIds) }
     }
 
-    fun getPublicPosts(page: Int, size: Int): Page<PostResponse> {
+    fun getPublicPosts(page: Int, size: Int, viewerUsername: String? = null): Page<PostResponse> {
         val pageable = PageRequest.of(page, size)
-        return postRepository.findByVisibilityOrderByCreatedAtDesc(Visibility.PUBLIC, pageable)
-            .map { it.toPostResponse() }
+        val viewer = viewerUsername?.let { userRepository.findByUsername(it) }
+        val posts = postRepository.findByVisibilityOrderByCreatedAtDesc(Visibility.PUBLIC, pageable)
+        val likedIds = viewer?.let { bulkLikedPostIds(it.id!!, posts.content) } ?: emptySet()
+        return posts.map { post -> post.toPostResponse(isLiked = post.id in likedIds) }
     }
 
     fun getPostsByHashtag(tag: String, page: Int, size: Int): Page<PostResponse> {
@@ -193,6 +191,16 @@ class PostService(
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
+
+    /**
+     * Returns the set of post IDs (from the given list) that userId has liked.
+     * One query instead of N — use this when rendering a page of posts.
+     */
+    private fun bulkLikedPostIds(userId: UUID, posts: List<Post>): Set<UUID> {
+        if (posts.isEmpty()) return emptySet()
+        val postIds = posts.mapNotNull { it.id }
+        return likeRepository.findLikedPostIds(userId, postIds)
+    }
 
     private fun extractAndSaveHashtags(post: Post) {
         val content = post.content ?: return
@@ -219,7 +227,8 @@ class PostService(
             repostCount = this.repostCount,
             isLiked = isLiked,
             parentPost = this.parentPost?.toPostResponse(),
-            createdAt = this.createdAt
+            createdAt = this.createdAt,
+            updatedAt = this.updatedAt
         )
     }
 
@@ -234,4 +243,3 @@ class PostService(
     fun getComments(postId: UUID, page: Int, size: Int) =
         commentService.getComments(postId, page, size)
 }
-
